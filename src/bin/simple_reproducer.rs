@@ -12,10 +12,13 @@
 // This is a mock forward simulation of particles in 1D.
 // There are two particles. We apply a "force" with value coefficient
 // to particle[1] for each time step.
-fn forward(x_coordinate: &mut [f32; 2], coefficient: f32, n_steps: u16) {
+
+#![feature(autodiff)]
+use std::autodiff::*;
+
+fn forward(x_coordinate: &mut [f32], coefficient: f32, n_steps: u16) {
     for _step in 0..n_steps{
         x_coordinate[1] += coefficient;
-
     }
 }
 
@@ -26,8 +29,9 @@ fn forward(x_coordinate: &mut [f32; 2], coefficient: f32, n_steps: u16) {
 // That is, L = (T - n * C)^2
 // where T is the target distance and C is the coefficient.
 // I only want to compute the derivative w.r.t. coefficient.
+#[autodiff_reverse(d_loss_automatic, Const, Active, Const, Const, Active)]
 fn loss(
-    x_coordinate: &mut [f32; 2],
+    x_coordinate: &mut [f32],
     coefficient: f32,
     n_steps: u16,
     target_distance: f32
@@ -44,7 +48,7 @@ fn loss(
 // where T is the target distance and C is the coefficient.
 // Thus, the derivative dL/dC = 2 (- T * n + n^2 * C)
 fn d_loss_manual(
-    x_coordinate: &mut [f32; 2],
+    x_coordinate: &mut [f32],
     coefficient: f32,
     n_steps: u16,
     target_distance: f32
@@ -85,18 +89,33 @@ fn main() {
     // target_distance apart.
     // We expect the coefficient to be:
     // target_distance / n_forward_steps = 3/5 = 0.6
-    for _ in 0..n_optimizer_steps {
+    for optimizer_step in 0..n_optimizer_steps {
         // make a mutable copy of the particle positions
         // (not sure if this is the best way...)
         let mut coordinates = initial_coordinates;
 
-        let (loss_value, d_loss_value) = d_loss_manual(
+        // Do compute the loss and its derivative using
+        // the manual implementation
+        // let (loss_value, d_loss_value) = d_loss_manual(
+        //     &mut coordinates,
+        //     coefficient,
+        //     n_forward_steps,
+        //     target_distance
+        // );
+
+        // Compute the loss and its derivative using
+        // automatic differentiation
+        let (loss_value, d_loss_value) = d_loss_automatic(
             &mut coordinates,
             coefficient,
             n_forward_steps,
-            target_distance
+            target_distance,
+            1.0
         );
-        println!("Coeff: {}, Loss: {},  d_Loss: {}", coefficient, loss_value, d_loss_value);
+
+        println!("Optimizer step {}", optimizer_step);
+        println!("    Coeff: {}, Loss: {},  d_Loss: {}", coefficient, loss_value, d_loss_value);
+        println!("    Final coordinates: {:?}", coordinates);
 
         // update the coefficient using the conjugate gradient
         coefficient += -d_loss_value * learning_rate;
