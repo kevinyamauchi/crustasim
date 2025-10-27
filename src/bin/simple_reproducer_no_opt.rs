@@ -27,7 +27,7 @@ fn forward(x_coordinate: &mut [f32], coefficient: f32, n_steps: u16) {
 // That is, L = (T - n * C)^2
 // where T is the target distance and C is the coefficient.
 // I only want to compute the derivative w.r.t. coefficient.
-#[autodiff_reverse(d_loss_automatic, Const, Active, Const, Const, Active)]
+#[autodiff_reverse(d_loss_automatic, Duplicated, Active, Const, Const, Active)]
 fn loss(
     x_coordinate: &mut [f32],
     coefficient: f32,
@@ -92,9 +92,11 @@ fn main() {
 
     // Compute the loss and its derivative using
     // automatic differentiation
-    let mut coordinates = initial_coordinates;
+    let mut coordinates_auto = initial_coordinates;
+    let mut coordinates_gradients: [f32; 2] = [0.0, 0.0];
     let (loss_value_auto, d_loss_value_auto) = d_loss_automatic(
-        &mut coordinates,
+        &mut coordinates_auto,
+        &mut coordinates_gradients,
         coefficient,
         n_forward_steps,
         target_distance,
@@ -107,5 +109,6 @@ fn main() {
     println!("Expected d_Loss value: 20");
     println!("    Manual d_Loss value: {:?}", d_loss_value_manual);
     println!("    Auto Diff d_Loss value: {:?}", d_loss_value_auto);
+    println!("Coordinates gradients: {:?}", coordinates_gradients);
 
 }
